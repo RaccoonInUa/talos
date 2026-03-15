@@ -1,0 +1,4 @@
+# file: /Users/feliksnesterov/talos/src/services/sdr_monitor.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1e-12, 2.0, 10.0, 1000000.0, 200, 500, 'nearest', 'sdr_monitor']

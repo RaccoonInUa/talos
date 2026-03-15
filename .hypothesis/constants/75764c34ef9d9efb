@@ -1,0 +1,4 @@
+# file: /Users/feliksnesterov/talos/src/hal/sdr.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.0005, 0.002, 0.05, 2.0, 250000.0, 1000000.0, -999999, 200, 100000, 'No SDR devices found', 'SDR Closed.', 'SDR Connected: %s', 'allow_emulation', 'connect_failures', 'error', 'fastfail_reads', 'partial_drops', 'partial_reads', 'ret', 'talos.hal.sdr', 'unknown', 'warning']

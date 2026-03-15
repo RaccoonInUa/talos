@@ -1,0 +1,4 @@
+# file: /Users/feliksnesterov/talos/src/core/bus.py
+# hypothesis_version: 6.151.9
+
+[0.1, 1.0, 100, 1000, 'Synchronized[int]', 'T', 'unknown']

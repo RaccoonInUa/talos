@@ -1,0 +1,4 @@
+# file: /Users/feliksnesterov/talos/src/services/logic_core.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.01, 0.1, 0.5, 1.0, 2.0, 3.0, 8.0, 15.0, 20.0, 1000000.0, 1000, 10000, 'logic_core']
