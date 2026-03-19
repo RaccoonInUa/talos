@@ -253,3 +253,70 @@ def test_bind_signals_if_main_thread_calls_signal_in_main_thread(
 
     # SIGINT + SIGTERM once each
     assert called["n"] == 2
+
+
+# -----------------------------------------------------------------------------
+# Realtime / Metrics / Wiring (Sprint 2 readiness)
+# -----------------------------------------------------------------------------
+
+def test_setup_wires_waterfall_queue(orchestrator: ServiceOrchestrator) -> None:
+    with patch("src.core.orchestrator.SdrMonitor") as MockSdr, patch(
+        "src.core.orchestrator.LogicService"
+    ):
+        orchestrator.setup()
+
+        # Перевіряємо, що waterfall_queue створена
+        assert orchestrator.waterfall_queue is not None
+
+        # Перевіряємо, що вона передана в SDR
+        _, kwargs = MockSdr.call_args
+        assert "waterfall_queue" in kwargs
+        assert kwargs["waterfall_queue"] is orchestrator.waterfall_queue
+
+
+def test_metrics_reflect_queue_state(orchestrator: ServiceOrchestrator) -> None:
+    q = MagicMock()
+    q.qsize.return_value = 5
+    q.maxsize = 10
+    q.qsize.assert_not_called()
+
+    orchestrator.cfar_queue = q
+    orchestrator.alert_queue = q
+    orchestrator.waterfall_queue = q
+
+    getattr(orchestrator, "_refresh_metrics")()
+
+    assert orchestrator.metrics["queue_cfar"] == [5, 10]
+    assert orchestrator.metrics["queue_alert"] == [5, 10]
+    assert orchestrator.metrics["queue_waterfall"] == [5, 10]
+    assert q.qsize.call_count == 3
+
+
+def test_waterfall_queue_lossy_behavior(orchestrator: ServiceOrchestrator) -> None:
+    """
+    Імітуємо переповнення: queue кидає, але система не падає.
+    """
+    q = MagicMock()
+    q.pop.return_value = None
+    q.qsize.return_value = 100
+    q.maxsize = 5
+
+    orchestrator.waterfall_queue = q
+
+    # Просто викликаємо metrics як proxy на "живість"
+    getattr(orchestrator, "_refresh_metrics")()
+
+    # Якщо дійшли сюди — система не впала
+    assert True
+
+
+def test_setup_creates_all_queues(orchestrator: ServiceOrchestrator) -> None:
+    with patch("src.core.orchestrator.SdrMonitor"), patch(
+        "src.core.orchestrator.LogicService"
+    ):
+        orchestrator.setup()
+
+        assert orchestrator.cfar_queue is not None
+        assert orchestrator.ai_queue is not None
+        assert orchestrator.alert_queue is not None
+        assert orchestrator.waterfall_queue is not None

@@ -6,7 +6,7 @@ import logging
 from datetime import datetime, timezone
 from uuid import uuid4
 from unittest.mock import MagicMock, patch
-
+import itertools
 import pytest
 
 from src.core.types import Alert, CfarEvent, EventSeverity
@@ -85,7 +85,11 @@ def test_execute_dedup_ignores_same_bucket_within_window() -> None:
 
     e1 = _mk_event(freq_hz=433_000_000.0, snr_db=10.0)
     e2 = _mk_event(freq_hz=433_005_000.0, snr_db=10.0)  # same 10kHz bucket
-    in_q.pop.side_effect = [e1, e2]
+
+    in_q.pop.side_effect = itertools.chain(
+    [e1, e2],
+    itertools.repeat(None)
+)
 
     with patch("time.monotonic", side_effect=[100.0, 101.0]):
         svc.execute()
@@ -103,7 +107,10 @@ def test_execute_dedup_allows_same_bucket_after_window() -> None:
 
     e1 = _mk_event(freq_hz=433_000_000.0, snr_db=10.0)
     e2 = _mk_event(freq_hz=433_005_000.0, snr_db=10.0)  # same 10kHz bucket
-    in_q.pop.side_effect = [e1, e2]
+    in_q.pop.side_effect = itertools.chain(
+        [e1, e2],
+        itertools.repeat(None)
+    )
 
     with patch("time.monotonic", side_effect=[100.0, 103.0]):  # > window
         svc.execute()
@@ -121,7 +128,10 @@ def test_execute_dedup_allows_different_buckets_same_time() -> None:
 
     e1 = _mk_event(freq_hz=433_000_000.0, snr_db=10.0)
     e2 = _mk_event(freq_hz=433_120_000.0, snr_db=10.0)  # different bucket
-    in_q.pop.side_effect = [e1, e2]
+    in_q.pop.side_effect = itertools.chain(
+        [e1, e2],
+        itertools.repeat(None)
+    )
 
     with patch("time.monotonic", side_effect=[100.0, 100.0]):
         svc.execute()

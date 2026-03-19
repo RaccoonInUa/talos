@@ -1,0 +1,4 @@
+# file: /Users/feliksnesterov/talos/src/core/orchestrator.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.1, 0.5, 1.0, 2.0, 1000000.0, 100, 1000, 'DISCONNECTED', 'KeyboardInterrupt.', 'SCANNING', 'Setup not called', 'Stopping services...', 'Supervisor error', 'UNKNOWN', 'ai_results', 'alerts', 'cfar_detections', 'cfar_events', 'clusters_emitted', 'events_emitted', 'frames_ok', 'frames_skipped', 'maxsize', 'queue_alert', 'queue_cfar', 'queue_waterfall', 'sdr_monitor', 'waterfall_frames', '⚪', '🔴', '🔵', '🟠']

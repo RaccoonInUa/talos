@@ -67,10 +67,17 @@ class EventSeverity(str, Enum):
     WARNING = "warning"
     CRITICAL = "critical"
 
+
 class SignalClassification(str, Enum):
     """Класифікатор сигналів (MVP 1.3 Scope)"""
     UNKNOWN = "unknown"
     STATIC = "static"     # Whitelisted signal
+
+class SimulationIntensity(str, Enum):
+    """Simulation load profile for RF environment"""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
 
 # --- CONFIGURATIONS (Immutable) ---
 
@@ -132,7 +139,7 @@ class CfarEvent(TalosBaseModel):
     timestamp: datetime
 
     # Синхронізація з водоспадом (UI overlay)
-    source_frame_seq: int = Field(..., description="ID кадру WaterfallFrame, де виявлено сигнал")
+    source_frame_seq: int = 0  # optional for backward compatibility
     
     center_freq_hz: float = Field(..., gt=0)
     bandwidth_hz: float = Field(..., gt=0)
@@ -211,7 +218,7 @@ class Alert(TalosBaseModel):
     source_ai_result_id: Optional[UUID] = None
 
     # Дозволяє прив'язати Alert до конкретного рядка водоспаду
-    source_frame_seq: Optional[int] = None
+    source_frame_seq: Optional[int] = 0
     
     severity: EventSeverity
     classification: SignalClassification
@@ -230,6 +237,7 @@ class TalosConfig(TalosFrozenModel):
     Головний об'єкт конфігурації системи.
     Агрегує налаштування всіх підсистем.
     """
+    simulation_intensity: SimulationIntensity = SimulationIntensity.MEDIUM
     sdr: SdrConfig
     processing: ProcessingConfig
     # У майбутньому сюди додадуться:

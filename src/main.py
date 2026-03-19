@@ -5,9 +5,46 @@ from __future__ import annotations
 import logging
 import logging.handlers
 from pathlib import Path
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from src.api.websocket import router as ws_router
 
 from src.core.config import load_config
 from src.core.orchestrator import ServiceOrchestrator
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    FastAPI lifespan handler (replaces deprecated on_event).
+    """
+    setup_logging(debug=False)
+
+    config = load_config()
+
+    orchestrator = ServiceOrchestrator(config)
+    orchestrator.setup()
+    orchestrator.start()
+
+    app.state.orchestrator = orchestrator
+
+    try:
+        yield
+    finally:
+        orch = getattr(app.state, "orchestrator", None)
+        if orch:
+            orch.request_stop()
+            orch.shutdown()
+
+
+# -----------------------------
+# ASGI App (FastAPI)
+# -----------------------------
+
+app = FastAPI(title="Talos API", lifespan=lifespan)
+
+# Register routers
+app.include_router(ws_router)
 
 
 def setup_logging(*, debug: bool = False) -> None:

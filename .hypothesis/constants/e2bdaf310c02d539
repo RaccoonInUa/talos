@@ -1,0 +1,4 @@
+# file: /Users/feliksnesterov/talos/src/services/sdr_monitor.py
+# hypothesis_version: 6.151.9
+
+[-120.0, 0.0, 1e-12, 2.0, 10.0, 255.0, 1000000.0, 200, 256, 500, 1000, 5000, 50000, 'edge', 'sdr_monitor', 'signal_separation_hz']

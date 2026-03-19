@@ -1,0 +1,4 @@
+# file: /Users/feliksnesterov/talos/src/core/types.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.85, 1.0, 15.0, 100, 256, 1024, 16384, 50000, 'Static Signal', 'created_at', 'critical', 'disconnected', 'error', 'forbid', 'info', 'ready', 'scanning', 'static', 'timestamp', 'unknown', 'warning', 'Поріг MSE', 'Посилення', 'Центральна частота', 'Швидкість потоку']

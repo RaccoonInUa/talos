@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
+import itertools
 
 import pytest
 import uuid
@@ -41,7 +42,10 @@ def test_logic_service_smoke_dedup_and_backpressure(caplog: pytest.LogCaptureFix
     e2 = _mk_event(freq_hz=433_000_000.0, snr_db=12.0, event_id=str(uuid.uuid4()))
     e3 = _mk_event(freq_hz=433_000_000.0, snr_db=12.0, event_id=str(uuid.uuid4()))
 
-    in_q.pop.side_effect = [e1, e2, e3]
+    in_q.pop.side_effect = itertools.chain(
+    [e1, e2, e3, None],          # твій список подій
+    itertools.repeat(None)
+)
 
     # First push succeeds; third push fails. Second execute must be dedup-skipped.
     out_q.push.side_effect = [True, False]

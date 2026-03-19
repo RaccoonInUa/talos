@@ -20,6 +20,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Optional
+from src.core.types import SimulationIntensity
+from enum import Enum
+
+# Simulation intensity enum
+class SimulationIntensity(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
 
 import numpy as np
 from numpy.typing import NDArray
@@ -111,14 +119,55 @@ class RFEnvironmentSimulator:
       - deterministic given the same seed/config/call pattern
     """
 
-    def __init__(self, config: Optional[RFEnvironmentConfig] = None):
+    def __init__(
+        self,
+        config: RFEnvironmentConfig | None = None,
+        *,
+        intensity: SimulationIntensity | str | None = None,
+    ):
         self.config = config or RFEnvironmentConfig()
+        self._apply_intensity_profile(intensity)
         self._rng = np.random.default_rng(self.config.seed)
 
         self._sim_time_s: float = 0.0
         self._hopper_next_hop_s: float = 0.0
         self._hopper_index: int = 0
         self._active_interferers: list[_ActiveInterferer] = []
+
+    def _apply_intensity_profile(self, intensity: str) -> None:
+        """
+        Adjust environment parameters based on desired simulation intensity.
+        """
+
+        if intensity == "low":
+            self.config.noise.std = 0.0008
+
+            self.config.telemetry.amplitude = 0.015
+
+            self.config.hopper.amplitude = 0.012
+            self.config.hopper.hop_interval_s = 0.12
+
+            self.config.interference.probability_per_frame = 0.01
+            self.config.interference.max_concurrent = 1
+            self.config.interference.max_amplitude = 0.03
+            self.config.interference.wideband_probability = 0.05
+
+        elif intensity == "high":
+            self.config.noise.std = 0.002
+
+            self.config.telemetry.amplitude = 0.05
+
+            self.config.hopper.amplitude = 0.04
+            self.config.hopper.hop_interval_s = 0.05
+
+            self.config.interference.probability_per_frame = 0.08
+            self.config.interference.max_concurrent = 5
+            self.config.interference.max_amplitude = 0.12
+            self.config.interference.wideband_probability = 0.35
+
+        else:
+            # medium (default)
+            pass
 
     def next_iq_frame(
         self,

@@ -1,8 +1,7 @@
 # src/core/config.py
 
 from __future__ import annotations
-from src.core.types import TalosConfig, SdrConfig, ProcessingConfig
-
+from src.core.types import TalosConfig, SdrConfig, ProcessingConfig, SimulationIntensity
 
 def load_config() -> TalosConfig:
     """
@@ -15,7 +14,10 @@ def load_config() -> TalosConfig:
       - YAML / JSON
       - CLI overrides
     """
+    simulation_intensity = SimulationIntensity.MEDIUM
+
     return TalosConfig(
+        simulation_intensity=simulation_intensity,
         sdr=SdrConfig(
             center_freq_hz=433e6,
             sample_rate_hz=2_000_000,

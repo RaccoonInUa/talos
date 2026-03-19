@@ -30,8 +30,9 @@ class VirtualSDRDevice:
     the HAL needs: "read_samples" returning complex64 IQ buffers.
     """
 
-    def __init__(self) -> None:
-        self._env = RFEnvironmentSimulator()
+    def __init__(self, intensity: SimulationIntensity) -> None:
+        # Enum → str (щоб simulator не залежав від core.types)
+        self._env = RFEnvironmentSimulator(intensity=intensity)
 
     def read_samples(
         self,
@@ -55,7 +56,7 @@ from typing import Any, Final, Optional, Literal
 import numpy as np
 from numpy.typing import NDArray
 
-from src.core.types import HalState, SdrConfig
+from src.core.types import HalState, SdrConfig, SimulationIntensity, TalosConfig
 
 # =============================================================================
 # Optional SoapySDR import (runtime-first)
@@ -112,8 +113,9 @@ class SdrDriver:
     _LOG_FASTFAIL_EVERY_N: Final[int] = 200
     _LOG_CONNECT_FAIL_EVERY_N: Final[int] = 10
 
-    def __init__(self, config: SdrConfig):
+    def __init__(self, config: SdrConfig, global_config: TalosConfig) -> None:
         self.config = config
+        self.global_config = global_config
         self._virtual_sdr: VirtualSDRDevice | None = None
         # Soapy objects frequently lack type stubs; Any is pragmatic.
         self._sdr: Optional[Any] = None
@@ -363,7 +365,8 @@ class SdrDriver:
         Uses a virtual RF environment rather than a single toy tone.
         """
         self._is_emulated = True
-        self._virtual_sdr = VirtualSDRDevice()
+        intensity: SimulationIntensity = self.global_config.simulation_intensity
+        self._virtual_sdr = VirtualSDRDevice(intensity=intensity)
         self.state = HalState.SCANNING
         self.logger.warning(">>> RUNNING IN EMULATION MODE <<< (%s)", reason)
         
@@ -399,7 +402,8 @@ class SdrDriver:
         time.sleep(n / float(self.config.sample_rate_hz))
 
         if self._virtual_sdr is None:
-            self._virtual_sdr = VirtualSDRDevice()
+            intensity: SimulationIntensity = self.global_config.simulation_intensity
+            self._virtual_sdr = VirtualSDRDevice(intensity=intensity)
 
         return self._virtual_sdr.read_samples(
             num_samples=n,

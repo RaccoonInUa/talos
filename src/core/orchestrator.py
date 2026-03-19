@@ -6,13 +6,26 @@ import logging
 import signal
 import threading
 import time
-from typing import List, Optional
+import asyncio
+
+from collections import deque
+from dataclasses import dataclass
+from typing import Deque, Set, List, Optional, Any
 
 from src.core.bus import TalosQueue
 from src.core.service import BaseService
 from src.core.types import Alert, AiAnomalyResult, CfarEvent, EventSeverity, TalosConfig, WaterfallFrame
 from src.services.logic_core import LogicService
 from src.services.sdr_monitor import SdrMonitor
+
+
+
+@dataclass(frozen=True)
+class EventSubscriber:
+    queue: asyncio.Queue[Alert]
+    loop: asyncio.AbstractEventLoop
+
+
 
 
 class ServiceOrchestrator:
@@ -54,6 +67,28 @@ class ServiceOrchestrator:
         # Signals are bound in run_forever() in main thread only
         self._signals_bound = False
 
+        # UI state snapshots
+        self._recent_alerts: Deque[Alert] = deque(maxlen=100)
+        self._latest_waterfall_frame: Optional[WaterfallFrame] = None
+
+        # Thread-safe pub/sub for WS clients
+        self._event_subscribers: Set[EventSubscriber] = set()
+        self._subscribers_lock = threading.Lock()
+
+        # Metrics snapshot (API)
+        self.metrics: dict[str, object] = {
+            "frames_ok": 0,
+            "frames_skipped": 0,
+            "cfar_detections": 0,
+            "clusters_emitted": 0,
+            "events_emitted": 0,
+            "waterfall_frames_emitted": 0,
+            "waterfall_frames_dropped": 0,
+            "queue_cfar": [0, 0],
+            "queue_alert": [0, 0],
+            "queue_waterfall": [0, 0],
+        }
+
     # ---------------------------------------------------------------------
     # Public hooks (production-friendly, test-friendly)
     # ---------------------------------------------------------------------
@@ -83,6 +118,40 @@ class ServiceOrchestrator:
         Useful for tests and for embedding the orchestrator into other runtimes.
         """
         return self._process_alerts()
+
+    @property
+    def hal_state(self) -> str:
+        for s in self.services:
+            if isinstance(s, SdrMonitor):
+                return "SCANNING" if s.is_alive() else "DISCONNECTED"
+        return "UNKNOWN"
+
+    def get_recent_alerts(self) -> list[Alert]:
+        return list(self._recent_alerts)
+
+    def get_latest_waterfall_frame(self) -> Optional[WaterfallFrame]:
+        self._drain_waterfall_queue()
+        return self._latest_waterfall_frame
+
+    def subscribe_events(self) -> asyncio.Queue[Alert]:
+        loop = asyncio.get_running_loop()
+        q: asyncio.Queue[Alert] = asyncio.Queue(maxsize=100)
+        sub = EventSubscriber(queue=q, loop=loop)
+        with self._subscribers_lock:
+            self._event_subscribers.add(sub)
+        return q
+
+    def unsubscribe_events(self, q: asyncio.Queue[Alert]) -> None:
+        with self._subscribers_lock:
+            doomed = [sub for sub in self._event_subscribers if sub.queue is q]
+            for sub in doomed:
+                self._event_subscribers.discard(sub)
+
+    def _prune_dead_subscribers(self) -> None:
+        with self._subscribers_lock:
+            self._event_subscribers = {
+                sub for sub in self._event_subscribers if not sub.loop.is_closed()
+            }
 
     # ---------------------------------------------------------------------
     # Signal handling (production-correct)
@@ -133,6 +202,7 @@ class ServiceOrchestrator:
             sdr_config=self.config.sdr,
             dsp_config=self.config.processing,
             output_queue=self.cfar_queue,
+            global_config=self.config,
             waterfall_queue=self.waterfall_queue,
         )
         self.services.append(sdr_service)
@@ -172,6 +242,8 @@ class ServiceOrchestrator:
                     self._stop_requested = True
                     break
 
+                self._refresh_metrics()
+                self._drain_waterfall_queue()
                 self._process_alerts()
                 self._drain_ai_stub()
                 time.sleep(self._MONITOR_INTERVAL_S)
@@ -193,12 +265,6 @@ class ServiceOrchestrator:
         return True
 
     def _process_alerts(self) -> int:
-        """
-        Orchestrator acts as final sink for alerts (MVP console dashboard).
-        Uses DTO-correct fields: severity + description.
-
-        Returns number of alerts consumed (useful for tests).
-        """
         if not self.alert_queue:
             return 0
 
@@ -207,6 +273,9 @@ class ServiceOrchestrator:
             alert = self.alert_queue.pop(timeout=0.0)
             if not alert:
                 break
+
+            self._recent_alerts.append(alert)
+            self._publish_alert(alert)
 
             icon = self._ICON_BY_SEVERITY.get(alert.severity, "⚪")
             self.logger.info(
@@ -220,6 +289,46 @@ class ServiceOrchestrator:
             count += 1
 
         return count
+
+    def _publish_alert(self, alert: Alert) -> None:
+        self._prune_dead_subscribers()
+        with self._subscribers_lock:
+            subscribers = tuple(self._event_subscribers)
+
+        for sub in subscribers:
+            try:
+                sub.loop.call_soon_threadsafe(self._offer_alert_to_subscriber, sub, alert)
+            except RuntimeError:
+                with self._subscribers_lock:
+                    self._event_subscribers.discard(sub)
+
+    @staticmethod
+    def _offer_alert_to_subscriber(sub: EventSubscriber, alert: Alert) -> None:
+        try:
+            sub.queue.put_nowait(alert)
+        except asyncio.QueueFull:
+            pass
+
+    def _drain_waterfall_queue(self) -> None:
+        if not self.waterfall_queue:
+            return
+
+        while True:
+            frame = self.waterfall_queue.pop(timeout=0.0)
+            if not frame:
+                break
+            self._latest_waterfall_frame = frame
+
+    def _refresh_metrics(self) -> None:
+        if self.cfar_queue:
+            q: Any = self.cfar_queue
+            self.metrics["queue_cfar"] = [int(q.qsize()), int(q.maxsize)]
+        if self.alert_queue:
+            q: Any = self.alert_queue
+            self.metrics["queue_alert"] = [int(q.qsize()), int(q.maxsize)]
+        if self.waterfall_queue:
+            q: Any = self.waterfall_queue
+            self.metrics["queue_waterfall"] = [int(q.qsize()), int(q.maxsize)]
 
     def _drain_ai_stub(self) -> None:
         """

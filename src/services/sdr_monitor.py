@@ -10,7 +10,7 @@ from numpy.typing import NDArray
 
 from src.core.bus import TalosQueue
 from src.core.service import BaseService
-from src.core.types import CfarEvent, ProcessingConfig, SdrConfig, WaterfallFrame, utc_now
+from src.core.types import CfarEvent, ProcessingConfig, SdrConfig, TalosConfig, WaterfallFrame, utc_now
 from src.hal.sdr import SdrDriver
 
 
@@ -58,6 +58,7 @@ class SdrMonitor(BaseService):
         sdr_config: SdrConfig,
         dsp_config: ProcessingConfig,
         output_queue: TalosQueue[CfarEvent],
+        global_config: TalosConfig,
         waterfall_queue: TalosQueue[WaterfallFrame] | None = None,
     ):
         super().__init__(name="sdr_monitor", loop_sleep_s=0.0)
@@ -66,6 +67,7 @@ class SdrMonitor(BaseService):
         self.dsp_config = dsp_config
         self.queue = output_queue
         self.waterfall_queue = waterfall_queue
+        self.global_config = global_config
 
         self.driver: Optional[SdrDriver] = None
 
@@ -116,7 +118,7 @@ class SdrMonitor(BaseService):
         """
         self.logger.info("Initializing DSP Engine: FFT=%d", self._fft_size)
 
-        self.driver = SdrDriver(self.sdr_config)
+        self.driver = SdrDriver(self.sdr_config, global_config=self.global_config)
         self.driver.connect()
 
         # Hann window:

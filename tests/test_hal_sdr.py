@@ -5,14 +5,14 @@
 #!!!
 
 from __future__ import annotations
-
+from src.core.types import TalosConfig
 from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 import pytest
 
-from src.core.types import HalState, SdrConfig
+from src.core.types import HalState, SdrConfig, ProcessingConfig
 from src.hal.sdr import SdrDriver
 
 
@@ -75,12 +75,23 @@ def _mk_cfg() -> SdrConfig:
     )
 
 
+def _mk_global_cfg() -> TalosConfig:
+    return TalosConfig(
+        sdr=_mk_cfg(),
+        processing=ProcessingConfig(
+            fft_size=1024,
+            cfar_threshold_db=15.0,
+            ai_anomaly_threshold=0.85,
+        ),
+    )
+
+
 # -----------------------------------------------------------------------------
 # Tests
 # -----------------------------------------------------------------------------
 
 def test_read_samples_not_scanning_returns_empty() -> None:
-    d = SdrDriver(_mk_cfg())
+    d = SdrDriver(_mk_cfg(), global_config=_mk_global_cfg())
     d.state = HalState.DISCONNECTED
 
     out = d.read_samples(1024)
@@ -90,7 +101,7 @@ def test_read_samples_not_scanning_returns_empty() -> None:
 
 
 def test_emulator_returns_full_frame_when_scanning() -> None:
-    d = SdrDriver(_mk_cfg())
+    d = SdrDriver(_mk_cfg(), global_config=_mk_global_cfg())
     d.state = HalState.SCANNING
     d._is_emulated = True  # force emulator branch
 
@@ -101,7 +112,7 @@ def test_emulator_returns_full_frame_when_scanning() -> None:
 
 
 def test_hardware_full_frame_object_ret() -> None:
-    d = SdrDriver(_mk_cfg())
+    d = SdrDriver(_mk_cfg(), global_config=_mk_global_cfg())
     d.state = HalState.SCANNING
     d._is_emulated = False
 
@@ -116,7 +127,7 @@ def test_hardware_full_frame_object_ret() -> None:
 
 
 def test_hardware_full_frame_tuple_ret() -> None:
-    d = SdrDriver(_mk_cfg())
+    d = SdrDriver(_mk_cfg(), global_config=_mk_global_cfg())
     d.state = HalState.SCANNING
     d._is_emulated = False
 
@@ -129,7 +140,7 @@ def test_hardware_full_frame_tuple_ret() -> None:
 
 
 def test_hardware_partial_frame_is_discarded_and_counts_drop() -> None:
-    d = SdrDriver(_mk_cfg())
+    d = SdrDriver(_mk_cfg(), global_config=_mk_global_cfg())
     d.state = HalState.SCANNING
     d._is_emulated = False
 
@@ -147,7 +158,7 @@ def test_hardware_partial_frame_is_discarded_and_counts_drop() -> None:
 
 
 def test_hardware_error_code_returns_empty_and_fastfail_increments() -> None:
-    d = SdrDriver(_mk_cfg())
+    d = SdrDriver(_mk_cfg(), global_config=_mk_global_cfg())
     d.state = HalState.SCANNING
     d._is_emulated = False
 
@@ -163,7 +174,7 @@ def test_hardware_error_code_returns_empty_and_fastfail_increments() -> None:
 
 
 def test_hardware_exception_returns_empty_and_fastfail_increments() -> None:
-    d = SdrDriver(_mk_cfg())
+    d = SdrDriver(_mk_cfg(), global_config=_mk_global_cfg())
     d.state = HalState.SCANNING
     d._is_emulated = False
 
@@ -189,7 +200,7 @@ def test_connect_throttle_prevents_connect_storm(monkeypatch: pytest.MonkeyPatch
     """
     import src.hal.sdr as sdr_mod
 
-    d = SdrDriver(_mk_cfg())
+    d = SdrDriver(_mk_cfg(), global_config=_mk_global_cfg())
 
     # Гарантуємо шлях емулювання (типово так і є в CI/dev без SoapySDR)
     d._is_emulated = True
