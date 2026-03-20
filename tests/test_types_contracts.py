@@ -18,7 +18,9 @@ from src.core.types import (
     WhitelistEntry,
     ProcessingConfig,
     SdrConfig,
-    EventSeverity
+    EventSeverity,
+    SimulationIntensity,
+    TalosConfig,
 )
 
 # --- 1. TIMEZONE CONTRACTS ---
@@ -251,3 +253,33 @@ def test_sdr_gain_limits():
     # Excessive gain
     with pytest.raises(ValidationError):
         SdrConfig.model_validate({"center_freq_hz": 1e6, "sample_rate_hz": 2e6, "gain_db": 61})
+
+
+def test_talos_config_accepts_simulation_intensity_values():
+    payload: Payload = {
+        "simulation_intensity": "low",
+        "sdr": {"center_freq_hz": 1e6, "sample_rate_hz": 2e6, "gain_db": 10.0},
+        "processing": {
+            "fft_size": 1024,
+            "cfar_threshold_db": 15.0,
+            "ai_anomaly_threshold": 0.85,
+        },
+    }
+
+    cfg = TalosConfig.model_validate(payload)
+    assert cfg.simulation_intensity == SimulationIntensity.LOW
+
+
+def test_talos_config_rejects_invalid_simulation_intensity():
+    payload: Payload = {
+        "simulation_intensity": "ultra",
+        "sdr": {"center_freq_hz": 1e6, "sample_rate_hz": 2e6, "gain_db": 10.0},
+        "processing": {
+            "fft_size": 1024,
+            "cfar_threshold_db": 15.0,
+            "ai_anomaly_threshold": 0.85,
+        },
+    }
+
+    with pytest.raises(ValidationError):
+        TalosConfig.model_validate(payload)

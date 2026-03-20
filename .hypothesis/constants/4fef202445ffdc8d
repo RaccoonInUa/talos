@@ -1,0 +1,4 @@
+# file: /Users/feliksnesterov/talos/src/api/server.py
+# hypothesis_version: 6.151.9
+
+['/', '/alerts', '/config', '/static', '/status', 'TALOS API', 'alert', 'cfar', 'cfar_detections', 'clusters_emitted', 'events_emitted', 'frames_ok', 'frames_skipped', 'hal_state', 'json', 'queue_alert', 'queue_cfar', 'queue_sizes', 'queue_waterfall', 'static', 'static/index.html', 'waterfall']

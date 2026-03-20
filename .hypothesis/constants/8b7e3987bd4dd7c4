@@ -1,0 +1,4 @@
+# file: /Users/feliksnesterov/talos/src/api/websocket.py
+# hypothesis_version: 6.151.9
+
+[b'\x00', 0.0, 1.0, 10.0, 256, '/ws/events', '/ws/waterfall', '<QddQ', 'Alert', 'Heartbeat', 'json', 'payload', 'timestamp', 'type', 'websocket_logger']

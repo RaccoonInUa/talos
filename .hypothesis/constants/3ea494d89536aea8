@@ -1,0 +1,4 @@
+# file: /Users/feliksnesterov/talos/src/core/service.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.15, 1.0, 2.0, 'Service stopped.', 'Stopping service...']

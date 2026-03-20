@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 
 from src.core.types import ProcessingConfig, SdrConfig, SimulationIntensity, TalosConfig
-from src.hal.sdr import SdrDriver
+from src.hal.sdr import SdrDriver, VirtualSDRDevice
 from src.sim.rf_environment import RFEnvironmentSimulator
 
 
@@ -40,6 +40,22 @@ def test_rf_environment_intensity_profiles_change_params() -> None:
         < base.config.interference.probability_per_frame
         < high.config.interference.probability_per_frame
     )
+
+
+def test_virtual_sdr_device_passes_intensity_to_simulator(monkeypatch) -> None:
+    import src.hal.sdr as sdr_mod
+
+    class _FakeSim:
+        last_intensity: Any = None
+
+        def __init__(self, *args: Any, intensity: Any = None, **kwargs: Any) -> None:
+            _FakeSim.last_intensity = intensity
+
+    monkeypatch.setattr(sdr_mod, "RFEnvironmentSimulator", _FakeSim)
+
+    _ = VirtualSDRDevice(intensity=SimulationIntensity.HIGH)
+
+    assert _FakeSim.last_intensity == SimulationIntensity.HIGH
 
 
 def test_sdrdriver_emulator_passes_global_simulation_intensity(monkeypatch) -> None:
