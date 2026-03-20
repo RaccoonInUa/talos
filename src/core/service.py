@@ -1,4 +1,3 @@
-#src/core/service.py
 import logging
 import signal
 import time
@@ -32,6 +31,7 @@ class BaseService(mp.Process, ABC):
         self._error_sleep_s = error_sleep_s
         
         self._stop_event = mp.Event()
+        self._started_event = mp.Event()
         self._logger: Optional[logging.Logger] = None
 
     @final
@@ -51,9 +51,10 @@ class BaseService(mp.Process, ABC):
 
         try:
             self.setup()
+            self._started_event.set()
             
             # Main Loop
-            while not self._stop_event.is_set():
+            while not self.should_stop:
                 try:
                     self.execute()
                     if self._loop_sleep_s > 0:
@@ -83,7 +84,7 @@ class BaseService(mp.Process, ABC):
     @property
     def logger(self) -> logging.Logger:
         if self._logger is None:
-            return logging.getLogger(f"talos.{self.service_name}")
+            self._logger = logging.getLogger(f"talos.{self.service_name}")
         return self._logger
 
     # --- ABSTRACT INTERFACE ---
@@ -99,6 +100,18 @@ class BaseService(mp.Process, ABC):
     @abstractmethod
     def teardown(self) -> None:
         pass
+
+    def wait_started(self, timeout: float | None = None) -> bool:
+        return self._started_event.wait(timeout)
+
+    def start(self) -> None:  # type: ignore[override]
+        super().start()
+        # Block until child process completes setup() to avoid race conditions
+        if not self.wait_started(timeout=2.0):
+            raise RuntimeError(f"{self.service_name} failed to start (setup timeout)")
+
+        # Small stabilization window for cross-process visibility (Manager proxies)
+        time.sleep(0.15)
 
     # --- INTERNAL ---
 
